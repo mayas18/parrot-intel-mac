@@ -91,6 +91,12 @@ enum TranscriptionBench {
             throw SilentExit(1)
         }
         var tuning = options.baseline ? WhisperTuning.baseline : WhisperTuning.standard
+        #if arch(x86_64)
+        if [options.encoder, options.decoder].compactMap({ $0 }).contains(where: { $0 != "cpu" }) {
+            print("Intel transcription uses whisper.cpp on CPU; --encoder and --decoder accept only cpu.")
+            throw SilentExit(64)
+        }
+        #endif
         if let name = options.encoder {
             guard let units = computeUnits(name) else {
                 print("--encoder: expected ane, gpu, cpu or all")
@@ -148,7 +154,10 @@ enum TranscriptionBench {
         // prediction; report it and keep it out of the medians.
         let firstAudio = try AudioProcessor.loadAudioAsFloatArray(fromPath: files[0].audio.path)
         let first = try blocking { try await transcriber.transcribe(firstAudio, context: context) }
-        print(String(format: "first transcription after load: %.0f ms", (first.timings?.total ?? 0) * 1000))
+        print(String(format: "first transcription: %.0f ms", (first.timings?.total ?? 0) * 1000))
+        #if arch(x86_64)
+        print("backend includes helper startup, model loading and inference; individual model stages are unavailable")
+        #endif
         print("")
         print(Row.header)
 
@@ -222,7 +231,11 @@ enum TranscriptionBench {
 
     /// One printed line: a file's stages over its runs.
     struct Row {
+        #if arch(x86_64)
+        static let header = "file                     audio  total      pre      backend    WER"
+        #else
         static let header = "file                     audio  total      pre      enc      dec        post    tokens  win  fb   WER"
+        #endif
 
         var name: String
         var audioSeconds: Double
@@ -238,25 +251,34 @@ enum TranscriptionBench {
             let windows = Percentile.of(samples.map { Double($0.windows) }, 50)
             let fallbacks = samples.map(\.fallbacks).reduce(0, +)
             let werText = wer.map { String(format: "%5.1f%%", $0.rate * 100) } ?? "     -"
-            return name.padding(toLength: 24, withPad: " ", startingAt: 0)
+            let prefix = name.padding(toLength: 24, withPad: " ", startingAt: 0)
                 + String(format: "%5.1fs", audioSeconds)
                 + "  " + stage(\.total).padding(toLength: 11, withPad: " ", startingAt: 0)
                 + stage(\.preprocessing).padding(toLength: 9, withPad: " ", startingAt: 0)
+            #if arch(x86_64)
+            return prefix + stage(\.backend).padding(toLength: 11, withPad: " ", startingAt: 0) + werText
+            #else
+            return prefix
                 + stage(\.encoder).padding(toLength: 9, withPad: " ", startingAt: 0)
                 + stage(\.decoder).padding(toLength: 11, withPad: " ", startingAt: 0)
                 + stage(\.postprocessing).padding(toLength: 8, withPad: " ", startingAt: 0)
                 + String(format: "%6.0f %4.0f %3d  ", tokens, windows, fallbacks)
                 + werText
+            #endif
         }
     }
 
     static func describe(_ tuning: WhisperTuning) -> String {
+        #if arch(x86_64)
+        var parts = ["whisper.cpp", "CPU"]
+        #else
         var parts = [
             "mel \(label(tuning.melCompute))",
             "encoder \(label(tuning.encoderCompute))",
             "decoder \(label(tuning.decoderCompute))",
         ]
         if tuning.withoutTimestamps { parts.append("no timestamps") }
+        #endif
         if tuning.trimSilence { parts.append("trim") }
         if tuning.leadPadding > 0 { parts.append(String(format: "lead pad %.2f s", tuning.leadPadding)) }
         if tuning.trailPadding > 0 { parts.append(String(format: "trail pad %.2f s", tuning.trailPadding)) }

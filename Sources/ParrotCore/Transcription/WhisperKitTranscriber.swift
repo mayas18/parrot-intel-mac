@@ -6,6 +6,9 @@ package actor WhisperKitTranscriber: Transcriber {
     let modelID: String
     private let model: TranscriptionModel
     let tuning: WhisperTuning
+    #if arch(x86_64)
+    private let intel: WhisperCppTranscriber
+    #endif
     private var pipeline: WhisperKit?
     /// Set by `unload`: this transcriber was replaced and loads nothing more.
     private var retired = false
@@ -14,6 +17,9 @@ package actor WhisperKitTranscriber: Transcriber {
         self.modelID = model.id
         self.model = model
         self.tuning = tuning
+        #if arch(x86_64)
+        self.intel = WhisperCppTranscriber(model: model, tuning: tuning)
+        #endif
     }
 
     /// Loads the model into memory; downloads first if not already on disk.
@@ -21,6 +27,9 @@ package actor WhisperKitTranscriber: Transcriber {
     /// download/load. `progress` gets the download's fraction done, 0 to 1,
     /// when there is anything to download.
     package func warmUp(progress: (@Sendable (Double) -> Void)? = nil) async throws {
+        #if arch(x86_64)
+        try await intel.warmUp(progress: progress)
+        #else
         if pipeline != nil || retired { return }
         guard let whisperKitID = model.whisperKitID else {
             throw TranscriberError.missingEngineID
@@ -58,15 +67,20 @@ package actor WhisperKitTranscriber: Transcriber {
         }
         pipeline = loaded
         Log.info("✓ \(model.id) ready")
+        #endif
     }
 
     /// Frees the model after a swap to another one (#43). A load still running
     /// finishes and is dropped, and a later `warmUp` returns at once.
     package func unload() async {
+        #if arch(x86_64)
+        await intel.unload()
+        #else
         retired = true
         guard let pipeline else { return }
         self.pipeline = nil
         await pipeline.unloadModels()
+        #endif
     }
 
     /// Uses `context.language` and `context.prompt`, or with no language
@@ -75,6 +89,9 @@ package actor WhisperKitTranscriber: Transcriber {
     /// word list, and a list given as a prompt scores no better than nothing
     /// (#23).
     package func transcribe(_ audio: [Float], context: TranscriptionContext) async throws -> Transcript {
+        #if arch(x86_64)
+        return try await intel.transcribe(audio, context: context)
+        #else
         if pipeline == nil { try await warmUp() }
         guard let pipeline else { throw TranscriberError.notLoaded }
 
@@ -103,6 +120,7 @@ package actor WhisperKitTranscriber: Transcriber {
         )
         timings.language = language ?? DictionaryContext.knownLanguage(of: model)
         return Transcript(text: text, timings: timings)
+        #endif
     }
 
     /// The language to decode `input` in, or nil for none; the prompt to go
@@ -215,9 +233,13 @@ package actor WhisperKitTranscriber: Transcriber {
 extension WhisperKitTranscriber {
     /// True if `model`'s weights are already under `Paths.appSupport`.
     package static func isCached(_ model: TranscriptionModel) -> Bool {
+        #if arch(x86_64)
+        return WhisperCppTranscriber.isCached(model)
+        #else
         guard let variant = model.whisperKitID else { return false }
         let dir = Paths.appSupport.appendingPathComponent(folders(for: variant)[0])
         return FileManager.default.fileExists(atPath: dir.path)
+        #endif
     }
 
     /// True if any registry model is still in the pre-0.0.6 ~/Documents cache.

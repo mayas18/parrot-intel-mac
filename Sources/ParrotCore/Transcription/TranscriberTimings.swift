@@ -21,6 +21,9 @@ package struct TranscriberTimings: Equatable, Sendable {
     package var encoder: TimeInterval = 0
     /// Decoder setup, the prompt, the token loop, and any temperature fallbacks.
     package var decoder: TimeInterval = 0
+    /// A backend that exposes only aggregate inference time, including model
+    /// loading when it happens per request (the Intel whisper.cpp helper).
+    package var backend: TimeInterval = 0
     /// Segmenting, detokenizing and cleaning up the text.
     package var postprocessing: TimeInterval = 0
     /// The whole `transcribe` call, wall clock.

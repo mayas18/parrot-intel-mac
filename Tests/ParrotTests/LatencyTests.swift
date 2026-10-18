@@ -140,6 +140,18 @@ final class WhisperTuningTests: XCTestCase {
         XCTAssertEqual(WhisperTuning.baseline.trailPadding, 0)
     }
 
+    func testModelComputeUsesAvailableHardware() {
+        for tuning in [WhisperTuning.standard, .baseline] {
+            #if arch(x86_64)
+            XCTAssertEqual(tuning.encoderCompute, .cpuAndGPU)
+            XCTAssertEqual(tuning.decoderCompute, .cpuAndGPU)
+            #else
+            XCTAssertEqual(tuning.encoderCompute, .cpuAndNeuralEngine)
+            XCTAssertEqual(tuning.decoderCompute, .cpuAndNeuralEngine)
+            #endif
+        }
+    }
+
     func testStandardPadsAfterTheTrim() {
         XCTAssertTrue(WhisperTuning.standard.trimSilence)
         XCTAssertEqual(WhisperTuning.standard.leadPadding, 0.3)

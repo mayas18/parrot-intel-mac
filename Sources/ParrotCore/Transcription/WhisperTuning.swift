@@ -10,8 +10,15 @@ import WhisperKit
 /// commit that set it has the numbers.
 package struct WhisperTuning: Equatable, @unchecked Sendable {
     package var melCompute: MLComputeUnits = .cpuAndGPU
+    #if arch(x86_64)
+    // Intel Macs have no Neural Engine. Core ML can use their GPU where
+    // supported and fall back to CPU for model operations it cannot run there.
+    package var encoderCompute: MLComputeUnits = .cpuAndGPU
+    package var decoderCompute: MLComputeUnits = .cpuAndGPU
+    #else
     package var encoderCompute: MLComputeUnits = .cpuAndNeuralEngine
     package var decoderCompute: MLComputeUnits = .cpuAndNeuralEngine
+    #endif
     /// Ask for text only when the audio fits one window. Dictation never
     /// uses segment timestamps.
     package var withoutTimestamps = false
@@ -23,7 +30,8 @@ package struct WhisperTuning: Equatable, @unchecked Sendable {
     /// Seconds of silence put after the audio after the trim.
     package var trailPadding: Double = 0
 
-    /// WhisperKit's defaults, as Parrot ran before #49.
+    /// WhisperKit's decoding defaults, with model compute units chosen for
+    /// the CPU architecture running this binary.
     package static let baseline = WhisperTuning()
 
     package static let standard = WhisperTuning(

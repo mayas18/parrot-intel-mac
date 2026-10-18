@@ -34,11 +34,15 @@ final class LatencyLog: DictationObserver {
             parts.append("pre \(ms(t.preprocessing))")
             // Automatic language only (#43).
             if t.languageDetection > 0 { parts.append("detect \(ms(t.languageDetection))") }
-            parts += [
-                "enc \(ms(t.encoder))",
-                "dec \(ms(t.decoder))",
-                "post \(ms(t.postprocessing))",
-            ]
+            if t.backend > 0 {
+                parts.append("backend \(ms(t.backend))")
+            } else {
+                parts += [
+                    "enc \(ms(t.encoder))",
+                    "dec \(ms(t.decoder))",
+                    "post \(ms(t.postprocessing))",
+                ]
+            }
         } else {
             parts.append("transcribe \(ms(result.transcriptionTime))")
         }
@@ -51,11 +55,13 @@ final class LatencyLog: DictationObserver {
                 parts.append(String(format: "trimmed to %.1f s", t.audioSeconds))
             }
             if let language = t.language { parts.append("lang \(language)") }
-            parts += [
-                "\(t.tokens) tokens",
-                "\(t.windows) window\(t.windows == 1 ? "" : "s")",
-                "\(t.fallbacks) fallback\(t.fallbacks == 1 ? "" : "s")",
-            ]
+            if t.backend == 0 {
+                parts += [
+                    "\(t.tokens) tokens",
+                    "\(t.windows) window\(t.windows == 1 ? "" : "s")",
+                    "\(t.fallbacks) fallback\(t.fallbacks == 1 ? "" : "s")",
+                ]
+            }
         }
         return parts.joined(separator: " · ")
     }

@@ -97,7 +97,14 @@ public enum CommandLineLink {
     static func install(at link: URL, target: URL, privileged: Bool) throws {
         let dir = link.deletingLastPathComponent()
         let fm = FileManager.default
-        if isWritable(dir) {
+        // A fresh installation may not have /usr/local/bin yet. Check the
+        // nearest existing parent so the terminal's sudo retry can create it.
+        var parent = dir
+        while !fm.fileExists(atPath: parent.path), parent.path != "/" {
+            parent.deleteLastPathComponent()
+        }
+        if isWritable(parent) {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
             if Paths.fileType(link.path) != nil {
                 try fm.removeItem(at: link)
             }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Parrot installer, for people who prefer a terminal to the DMG.
-#   curl -fsSL https://perroquet.xyz/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/mayas18/parrot-intel-mac/main/site/install.sh | bash
 #
 # Downloads the latest Parrot DMG from GitHub Releases, checks it against
 # the published SHA-256, copies Parrot.app to /Applications (or
@@ -8,11 +8,12 @@
 # is signed and notarized, so Gatekeeper opens it without an override and
 # nothing strips the quarantine attribute.
 #
-# Apple Silicon only: WhisperKit runs on the Apple Neural Engine via CoreML.
+# Reserved for future signed fork releases; use the README source build today.
+# This fork targets Intel Macs. Apple Silicon users should use upstream Parrot.
 
 set -euo pipefail
 
-REPO="humanitas-labs/parrot"
+REPO="mayas18/parrot-intel-mac"
 ASSET="Parrot.dmg"
 LINK="/usr/local/bin/parrot"
 
@@ -25,15 +26,18 @@ if [ "$(uname -s)" != "Darwin" ]; then
     red "parrot is macOS-only (detected $(uname -s))"
     exit 1
 fi
-
-ARCH=$(uname -m)
-if [ "$ARCH" != "arm64" ]; then
-    red "parrot requires Apple Silicon (detected $ARCH)"
-    red "the on-device inference engine uses the Apple Neural Engine, which Intel Macs don't have."
+if [ "$(sw_vers -productVersion | cut -d. -f1)" -lt 14 ]; then
+    red "Parrot requires macOS 14 or later."
     exit 1
 fi
 
-for cmd in curl shasum hdiutil ditto; do
+ARCH=$(uname -m)
+case "$ARCH" in
+    arm64|x86_64) ;;
+    *) red "unsupported Mac architecture: $ARCH"; exit 1 ;;
+esac
+
+for cmd in curl shasum hdiutil ditto lipo; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         red "missing dependency: $cmd"
         exit 1
@@ -42,8 +46,12 @@ done
 
 # 2. resolve latest release
 dim "→ resolving latest release..."
-TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep -E '"tag_name"' \
+if ! RELEASE=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest"); then
+    red "This fork has no downloadable release yet, or GitHub is unavailable."
+    red "Build from source: https://github.com/${REPO}#1-install"
+    exit 1
+fi
+TAG=$(printf '%s\n' "$RELEASE" | grep -E '"tag_name"' \
     | head -1 \
     | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
@@ -83,6 +91,17 @@ fi
 MOUNT="$TMP/mnt"
 mkdir -p "$MOUNT"
 hdiutil attach "$TMP/${ASSET}" -nobrowse -readonly -quiet -mountpoint "$MOUNT"
+if ! lipo "$MOUNT/Parrot.app/Contents/MacOS/parrot" -verify_arch "$ARCH"; then
+    red "Parrot ${TAG} does not include a $ARCH binary; your existing installation was left in place."
+    exit 1
+fi
+if [ "$ARCH" = x86_64 ]; then
+    HELPER="$MOUNT/Parrot.app/Contents/Helpers/whisper-cli"
+    if [ ! -x "$HELPER" ] || ! lipo "$HELPER" -verify_arch x86_64; then
+        red "This release is missing the Intel transcription helper; your existing installation was left in place."
+        exit 1
+    fi
+fi
 
 if [ -w /Applications ]; then
     APPS=/Applications

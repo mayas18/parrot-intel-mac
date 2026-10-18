@@ -81,6 +81,16 @@ final class PackagingTests: XCTestCase {
         }
     }
 
+    func testInstallCreatesMissingParentDirectories() throws {
+        let target = dir.appendingPathComponent("target")
+        FileManager.default.createFile(atPath: target.path, contents: Data())
+        let link = dir.appendingPathComponent("local/bin/parrot")
+
+        try CommandLineLink.install(at: link, target: target, privileged: false)
+
+        XCTAssertEqual(CommandLineLink.state(at: link, target: target), .linked)
+    }
+
     func testShellQuote() {
         XCTAssertEqual(CommandLineLink.shellQuote("/Applications/Parrot.app"), "'/Applications/Parrot.app'")
         XCTAssertEqual(CommandLineLink.shellQuote("it's"), "'it'\\''s'")

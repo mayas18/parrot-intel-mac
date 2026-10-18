@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: `2026.09.28`
+Last updated: `2026.10.18`
 
 > This document is the target structure. Contributors and agents working on an issue read it first: it says where each kind of change belongs, so parallel work composes instead of colliding.
 
@@ -32,11 +32,11 @@ Parrot is a macOS menu-bar dictation app. Hold a key, speak, release, and the tr
 3. **Minimal surface.** A menu-bar item, a small recording pill, and one settings window. No dock icon, no main window.
 4. **Your words.** A custom dictionary biases the model toward the names and terms you use, and fixes what it still gets wrong.
 5. **Trustworthy by construction.** Transcript text is never written to logs or disk. The app is signed and notarized, so permissions survive updates.
-6. **Pluggable engines.** Whisper (WhisperKit) today, Parakeet and Apple SpeechAnalyzer behind the same protocol.
+6. **Pluggable engines.** WhisperKit on Apple Silicon and whisper.cpp on Intel share the transcription protocol; Parakeet and Apple SpeechAnalyzer remain possible future engines.
 
 ### 1.2 — Non-goals
 
-- Cross-platform. Parrot depends on CoreML and the Apple Neural Engine.
+- Cross-platform. Parrot depends on macOS APIs, including Core ML, Core Audio, and Accessibility.
 - Cloud transcription providers.
 - Transcript history or search. Stats keep counts only.
 - Meeting recording and diarization. They may come later as a separate mode.
@@ -51,6 +51,8 @@ Package.swift
 ```
 
 `Parrot.app` wraps the `parrot` executable in a signed bundle. The same binary runs as the app (launched by `SMAppService` or from Finder) and as the CLI (through a symlink). Launching with no subcommand runs the dictation loop.
+
+The release build targets a universal (`arm64` and `x86_64`) app for macOS 14 or later. Apple Silicon uses WhisperKit and Core ML. Intel uses a bundled, CPU-based whisper.cpp helper and GGML model weights in a separate cache. Transcription latency depends on the processor, model, and audio length; the Apple Silicon latency measurements do not describe Intel performance. Local `swift build` builds for the host architecture.
 
 The executable holds no logic beyond parsing flags and calling ParrotCore. Anything worth testing lives in ParrotCore.
 

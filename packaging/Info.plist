@@ -33,13 +33,9 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Parrot records while you hold the dictation key and turns your speech into text on this Mac. Audio never leaves it.</string>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://github.com/humanitas-labs/parrot/releases/latest/download/appcast.xml</string>
-	<!-- Public half of the Parrot update key (generate_keys --account parrot). The private
-	     half is the SPARKLE_PRIVATE_KEY repository secret; release.yml checks they match. -->
-	<key>SUPublicEDKey</key>
-	<string>sBKarVRumHAb75Avth4zTROhclldBN+nUC3ffkhcoTw=</string>
+	<false/>
+	<!-- This fork has no signed release feed yet. Add its own SUFeedURL and
+	     SUPublicEDKey before enabling updates; never reuse upstream's feed/key. -->
 	<key>SURequireSignedFeed</key>
 	<true/>
 	<key>SUScheduledCheckInterval</key>

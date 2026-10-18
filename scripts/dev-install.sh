@@ -18,6 +18,7 @@
 #   PARROT_LINK_DIR       where the parrot link goes (default /usr/local/bin;
 #                         set it empty to skip the link)
 #   PARROT_NO_RESTART=1   don't quit and reopen a running copy
+#   PARROT_ARCHS          architectures to build (default: this Mac's architecture)
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -35,7 +36,8 @@ DEST="$PARROT_INSTALL_DIR/Parrot.app"
 EXE="$DEST/Contents/MacOS/parrot"
 
 VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo 0.0.0)"
-PARROT_TIMESTAMP=none PARROT_BUILD_DIR="$BUILD" scripts/build-app.sh "${VERSION#v}"
+PARROT_TIMESTAMP=none PARROT_BUILD_DIR="$BUILD" PARROT_ARCHS="${PARROT_ARCHS:-$(uname -m)}" \
+    scripts/build-app.sh "${VERSION#v}"
 
 WAS_RUNNING=0
 if [ -z "${PARROT_NO_RESTART:-}" ] && pgrep -f "^$EXE" >/dev/null 2>&1; then
