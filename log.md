@@ -34,3 +34,10 @@ This is the working log for the public [`mayas18/parrot-intel-mac`](https://gith
 2. Build and inspect both slices of a universal app on a suitable release host. The current host check covers `x86_64` only.
 3. Run Swift unit tests where a working XCTest toolchain is available. The new GGML model naming and WAV encoding tests have compiled only as source review here.
 4. Publish a signed and notarized Intel-capable release only when Developer ID signing and notarization credentials are available. There is no such credential on the test Mac; this repository currently provides source builds.
+
+## Public source release
+
+- Published this fork as source with upstream history and the Humanitas Labs MIT license. The bundle build now includes both the Parrot and whisper.cpp/ggml MIT notices.
+- The helper build targets macOS 14.0; the repackaged helper reports `minos 14.0`. The assembled app passed strict signature verification, and the bundled helper achieved 0% word error rate on the speech fixture.
+- Automatic updates are disabled until this fork has its own signed release feed. There is no signed or notarized Intel DMG yet.
+- Linked the fork in [upstream issue #48](https://github.com/humanitas-labs/parrot/issues/48#issuecomment-6246258580), which invites links to maintained ports.
